@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plasma Levels Simulation</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Basic styling */
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            background-color: #f0f0f0;
+        }
+        /* General container styling */
+        .card-container {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            width: 95%;
+            max-width: 800px;
+            box-sizing: border-box;
+        }
+        .card-container strong {
+             margin-bottom: 10px;
+             display: block;
+             border-bottom: 1px solid #eee;
+             padding-bottom: 5px;
+        }
+        .form-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .form-group label { margin-right: 5px; }
+        .form-group input, .form-group select {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+         .form-group input[type="text"] { flex-grow: 1; }
+         .form-group input[type="number"] { width: 60px; }
+         .form-group button, .scenario-card button {
+            padding: 6px 12px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+         }
+         .form-group button:hover, .scenario-card button:hover { background-color: #45a049; }
+
+         /* Styling for each scenario card */
+         .scenario-card {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-top: 10px;
+            padding: 10px;
+         }
+         .scenario-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+         }
+          .scenario-header h4 { margin: 0; }
+          .scenario-header .remove-scenario-btn { background-color: #f44336; }
+          .scenario-header .remove-scenario-btn:hover { background-color: #da190b; }
+
+         /* Styling for the list of components within a scenario */
+         .component-list ul { list-style: none; padding: 0; margin: 10px 0; }
+          .component-list li {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 5px;
+            border-bottom: 1px solid #f0f0f0;
+            gap: 10px;
+            flex-wrap: wrap;
+          }
+           .component-list li:last-child { border-bottom: none; }
+           .component-list li span { flex-grow: 1; min-width: 200px; }
+           .component-list li button {
+            background-color: #e57373;
+            padding: 3px 8px;
+            font-size: 0.9em;
+            flex-shrink: 0;
+           }
+            .component-list li button:hover { background-color: #ef5350; }
+
+        /* Chart container styling */
+        #chart-container {
+            position: relative;
+            height: 60vh;
+            min-height: 300px;
+        }
+    </style>
+</head>
+<body>
+    <!-- UI Controls to Add Scenarios -->
+    <div id="controls" class="card-container">
+        <strong>Add New Scenario:</strong>
+        <div class="form-group">
+            <label for="scenario-name">Name:</label>
+            <input type="text" id="scenario-name" placeholder="e.g., 'My scenario'">
+            <button onclick="addScenario()">Add Scenario</button>
+        </div>
+    </div>
+
+    <!-- Display Area for Active Scenarios -->
+    <div id="scenarios-container" class="card-container">
+        <strong>Active Scenarios:</strong>
+        <div id="scenarios-display-area">
+            <!-- Scenarios will be rendered here by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Chart Container -->
+    <div id="chart-container" class="card-container">
+        <canvas id="myChart"></canvas>
+    </div>
+
+    <script>
+        // --- Base Data Profiles ---
+        const baseProfiles = {
+            'XR 20mg': Object.freeze([ {x: 0, y: 0}, {x: 1, y: 10}, {x: 2, y: 12}, {x: 3, y: 10.5}, {x: 4, y: 11.5}, {x: 5, y: 12}, {x: 6, y: 14}, {x: 7, y: 13}, {x: 8, y: 11}, {x: 9, y: 9}, {x: 10, y: 6.5}, {x: 11, y: 5.5}, {x: 12, y: 4}, {x: 16, y: 1.5}, {x: 20, y: 1}, {x: 24, y: 0.2}, {x: 30, y: 0.1}, {x: 36, y: 0.05}, {x: 48, y: 0} ]),
+            'XR 10mg': Object.freeze([ {x: 0, y: 0}, {x: 1, y: 5}, {x: 2, y: 6}, {x: 3, y: 5.25}, {x: 4, y: 5.75}, {x: 5, y: 6}, {x: 6, y: 7}, {x: 7, y: 6.5}, {x: 8, y: 5.5}, {x: 9, y: 4.5}, {x: 10, y: 3.25}, {x: 11, y: 2.75}, {x: 12, y: 2}, {x: 16, y: 0.75}, {x: 20, y: 0.5}, {x: 24, y: 0.1}, {x: 30, y: 0.05}, {x: 36, y: 0.025}, {x: 48, y: 0} ]),
+            'IR 10mg': Object.freeze([ {x: 0, y: 0}, {x: 1, y: 10}, {x: 2, y: 12}, {x: 3, y: 9}, {x: 4, y: 8}, {x: 6, y: 6}, {x: 7, y: 4}, {x: 8, y: 3}, {x: 9, y: 2}, {x: 10, y: 1.75}, {x: 11, y: 1.5}, {x: 12, y: 1}, {x: 16, y: 0.5}, {x: 20, y: 0.25}, {x: 24, y: 0.1}, {x: 30, y: 0} ]),
+            'IR 5mg': Object.freeze([ {x: 0, y: 0}, {x: 1, y: 5}, {x: 2, y: 6}, {x: 3, y: 4.5}, {x: 4, y: 4}, {x: 6, y: 3}, {x: 7, y: 2}, {x: 8, y: 1.5}, {x: 9, y: 1}, {x: 10, y: 0.875}, {x: 11, y: 0.75}, {x: 12, y: 0.5}, {x: 16, y: 0.25}, {x: 20, y: 0.125}, {x: 24, y: 0.05}, {x: 30, y: 0} ]),
+        };
+        const colorPalette = ['rgb(75, 192, 192)', 'rgb(255, 99, 132)', 'rgb(54, 162, 235)', 'rgb(255, 206, 86)', 'rgb(153, 102, 255)', 'rgb(255, 159, 64)'];
+
+        // --- State Management ---
+        let scenarios = []; // Array of scenario objects
+        let myChart;
+
+        // --- Helper Functions (interpolateY, calculateComponentData, etc.) ---
+        function interpolateY(sortedData, x) { if (!sortedData || sortedData.length === 0) return 0; let p1 = null, p2 = null; for (let i = 0; i < sortedData.length; i++) { if (sortedData[i].x <= x) { p1 = sortedData[i]; } if (sortedData[i].x >= x && !p2) { p2 = sortedData[i]; break; } } if (!p1) return p2 ? (Number(p2.y) || 0) : 0; if (!p2) return p1 ? (Number(p1.y) || 0) : 0; const x1 = Number(p1.x) || 0; const y1 = Number(p1.y) || 0; const x2 = Number(p2.x) || 0; const y2 = Number(p2.y) || 0; if (x1 === x) return y1; if (x2 === x) return y2; if (x1 === x2) return y1; const interpolatedY = y1 + (x - x1) * (y2 - y1) / (x2 - x1); return isNaN(interpolatedY) ? 0 : interpolatedY; }
+        function calculateComponentData(originalData, startTime, multiplier) { const delay = Number(startTime) || 0; const scale = Number(multiplier); const finalMultiplier = (isNaN(scale) || scale < 0) ? 0 : scale; return originalData.map(point => ({ x: (Number(point.x) || 0) + delay, y: (Number(point.y) || 0) * finalMultiplier })); }
+        function calculateCombinedData(componentDataArrays, maxX) { const combined = []; const step = 0.5; for (let x = 0; x <= maxX; x += step) { let totalY = 0; componentDataArrays.forEach(dataArray => { const interpolated = interpolateY(dataArray, x); totalY += (typeof interpolated === 'number' && !isNaN(interpolated)) ? interpolated : 0; }); combined.push({ x: x, y: isNaN(totalY) ? 0 : totalY }); } return combined; }
+        function calculateCurrentMaxY(allDatasets) { let overallMaxY = 0; allDatasets.forEach(dataset => { dataset.data.forEach(point => { const yVal = Number(point.y); if (!isNaN(yVal) && yVal > overallMaxY) { overallMaxY = yVal; } }); }); return overallMaxY > 0 ? overallMaxY : 10; }
+        function updateYAxisMax() { if (!myChart) return; const maxY = calculateCurrentMaxY(myChart.data.datasets); const finalMaxY = (typeof maxY === 'number' && !isNaN(maxY)) ? maxY : 10; myChart.options.scales.y.max = Math.ceil(finalMaxY + finalMaxY * 0.1); if (myChart.options.scales.y.max < 5) { myChart.options.scales.y.max = 5; } }
+
+        // --- UI Rendering ---
+        function renderScenarios() {
+            const displayArea = document.getElementById('scenarios-display-area');
+            displayArea.innerHTML = ''; // Clear existing content
+
+            scenarios.forEach(scenario => {
+                const scenarioCard = document.createElement('div');
+                scenarioCard.className = 'scenario-card';
+                scenarioCard.innerHTML = `
+                    <div class="scenario-header">
+                        <h4>${scenario.name}</h4>
+                        <button class="remove-scenario-btn" onclick="removeScenario(${scenario.id})">Remove Scenario</button>
+                    </div>
+                    <div class="component-list">
+                        <ul>${renderComponentsList(scenario)}</ul>
+                    </div>
+                    <div class="form-group">
+                        <select id="component-type-${scenario.id}">
+                            <option value="XR 20mg">XR 20mg</option>
+                            <option value="XR 10mg">XR 10mg</option>
+                            <option value="IR 10mg">IR 10mg</option>
+                            <option value="IR 5mg">IR 5mg</option>
+                        </select>
+                        <input type="number" id="component-start-time-${scenario.id}" value="9" min="0" step="0.5">
+                        <input type="number" id="component-multiplier-${scenario.id}" value="1" min="0" step="1">
+                        <button onclick="addComponent(${scenario.id})">Add Component</button>
+                    </div>
+                `;
+                displayArea.appendChild(scenarioCard);
+            });
+        }
+
+        function renderComponentsList(scenario) {
+            if (scenario.components.length === 0) {
+                return '<li>No components added yet.</li>';
+            }
+            return scenario.components.map(component => `
+                <li>
+                    <span>${component.type} x ${component.multiplier} @ ${component.startTime}h</span>
+                    <button onclick="removeComponent(${scenario.id}, ${component.id})">Remove</button>
+                </li>
+            `).join('');
+        }
+
+        // --- Chart Update ---
+        function updateChartData() {
+            if (!myChart) return;
+            const maxX = 48;
+
+            myChart.data.datasets = scenarios.map((scenario, index) => {
+                const componentDataArrays = scenario.components.map(instance => {
+                    return calculateComponentData(baseProfiles[instance.type], instance.startTime, instance.multiplier);
+                });
+                const combinedData = calculateCombinedData(componentDataArrays, maxX);
+                const color = colorPalette[index % colorPalette.length];
+
+                return {
+                    label: scenario.name,
+                    data: combinedData,
+                    borderColor: color,
+                    backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.2)'),
+                    borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
+                    showLine: true, tension: 0.1
+                };
+            });
+
+            updateYAxisMax();
+            myChart.update();
+        }
+
+        // --- Event Handlers ---
+        function addScenario() {
+            const nameInput = document.getElementById('scenario-name');
+            const name = nameInput.value.trim() || `Scenario ${scenarios.length + 1}`;
+            scenarios.push({ id: Date.now(), name: name, components: [] });
+            nameInput.value = ''; // Clear input
+            renderScenarios();
+            updateChartData();
+        }
+
+        function removeScenario(scenarioId) {
+            scenarios = scenarios.filter(s => s.id !== scenarioId);
+            renderScenarios();
+            updateChartData();
+        }
+
+        function addComponent(scenarioId) {
+            const scenario = scenarios.find(s => s.id === scenarioId);
+            if (!scenario) return;
+
+            const type = document.getElementById(`component-type-${scenarioId}`).value;
+            const startTime = parseFloat(document.getElementById(`component-start-time-${scenarioId}`).value) || 0;
+            const multiplier = parseFloat(document.getElementById(`component-multiplier-${scenarioId}`).value);
+            const finalMultiplier = (isNaN(multiplier) || multiplier < 0) ? 0 : multiplier;
+
+            scenario.components.push({ id: Date.now(), type, startTime, multiplier: finalMultiplier });
+            renderScenarios();
+            updateChartData();
+        }
+
+        function removeComponent(scenarioId, componentId) {
+            const scenario = scenarios.find(s => s.id === scenarioId);
+            if (!scenario) return;
+            scenario.components = scenario.components.filter(c => c.id !== componentId);
+            renderScenarios();
+            updateChartData();
+        }
+
+         // --- Initial Chart Setup ---
+        function setupChart() {
+            const ctx = document.getElementById('myChart').getContext('2d');
+            const maxX = 48;
+
+            const chartOptions = {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Time', font: { size: 14 } }, grid: { color: '#eee' }, min: 0, max: maxX, ticks: { stepSize: 4, callback: function(value, index, ticks) { if (value % 4 !== 0 && value !== 0) { return null; } const day = Math.floor(value / 24) + 1; const hour = value % 24; const hourString = hour.toString().padStart(2, '0'); return `Day ${day}, ${hourString}:00`; }, maxRotation: 45, minRotation: 0 } },
+                    y: { type: 'linear', title: { display: true, text: 'Total Simulated Plasma Levels (ng/mL)', font: { size: 14 } }, beginAtZero: true, grid: { color: '#eee' }, suggestedMax: 10 }
+                },
+                plugins: {
+                    title: { display: true, text: 'Simulated Combination', font: { size: 18 }, padding: { top: 10, bottom: 20 } },
+                    legend: { display: true, position: 'top', labels: { usePointStyle: true } },
+                    tooltip: { enabled: true, mode: 'index', intersect: false, callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) { label += ': '; } if (context.parsed.y !== null) { label += `(${context.parsed.x.toFixed(1)}, ${context.parsed.y.toFixed(1)})`; } return label; } } },
+                }
+            };
+
+            myChart = new Chart(ctx, { type: 'scatter', data: { datasets: [] }, options: chartOptions });
+
+            // Add a default scenario to start with
+            addScenario();
+            // Manually add a default component to the first scenario
+            if (scenarios.length > 0) {
+                 addComponent(scenarios[0].id);
+            }
+        }
+
+        // --- Initialize Chart on Page Load ---
+        window.onload = setupChart;
+    </script>
+</body>
+</html>
